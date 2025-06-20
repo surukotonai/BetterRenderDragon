@@ -9,6 +9,9 @@
 #include "gui/Options.h"
 
 #include <iostream>
+#include <stacktrace>
+
+#include <iostream>
 //=====================================================Vanilla2Deferred=====================================================
 
 char globalGraphicsMode = 0;
@@ -52,130 +55,32 @@ SKY_AUTO_STATIC_HOOK(getGameVersionString, memory::HookPriority::Normal,
   } else if (version.find("1.21.8") != std::string::npos) {
     NEW_VIDEO_SETTINGS = 730;
     MaterialResourceManagerOffset = 960;
+  } else if (version.find("1.21.9") != std::string::npos) {
+    MaterialResourceManagerOffset = 960;
   }
   return version;
 }
 
-SKY_AUTO_STATIC_HOOK(
-    isDeferredShadingAvailable, memory::HookPriority::Normal,
-    std::initializer_list<const char *>(
-        {// Win 1.21.60
-         "40 53 48 83 EC 20 48 8B 01 48 8B D9 48 8B 40 ? FF 15 ? ? ? ? 84 C0 "
-         "74 ? 48 8B 03 48 8B CB 48 8B 40 ? FF 15 ? ? ? ? 84 C0 75 ? 48 8B "
-         "03"}),
-    bool, int64_t a1) {
-  if (shouldForceEnableNewVideoSettings()) {
-    return true;
-  }
-  return origin(a1);
-}
-
-SKY_AUTO_STATIC_HOOK(
-    RPM_supportsVibrantVisuals, memory::HookPriority::Normal,
-    std::initializer_list<const char *>({
-        // Win 1.21.80
-        "48 89 5C 24 ? 48 89 74 24 ? 57 48 83 EC 20 48 8B 81 ? ? ? ? 48 8B F1",
-    }),
-    bool, void *a1) {
+SKY_AUTO_STATIC_HOOK(HOOK1, memory::HookPriority::Normal,
+                     " 80 79 ? ? 75 ? 80 79 ? ? 74 ? B0 01 C3 32 C0 C3 CC CC "
+                     "CC CC CC CC CC CC CC CC CC CC CC CC 88 51 ? C3",
+                     bool, __int64 a1) {
   return true;
 }
 
-/*
-SKY_AUTO_STATIC_HOOK(getDeferred, memory::HookPriority::Normal,
-                     std::initializer_list<const char *>({
-                         // Android 1.21.70
-                         "FF 83 01 D1 FD 7B 02 A9 FD 83 00 91 F7 1B 00 F9 F6 "
-                         "57 04 A9 F4 4F 05 A9 57 D0 3B D5 C1 5A 80 52",
-                     }),
-                     bool, void *_this) {
-  if (shouldForceEnableNewVideoSettings()) {
-    if (globalGraphicsMode == 2) {
-      return true;
-    }
-  }
-  return origin(_this);
-}
-
-SKY_AUTO_STATIC_HOOK(RayTracingsetGraphicsMode, memory::HookPriority::Normal,
-                     std::initializer_list<const char *>({// Win 1.21.70
-                                                          "88 51 ? 80 FA 01"}),
-                     void, void *a1, unsigned char Graphics) {
-  globalGraphicsMode = Graphics;
-  origin(a1, Graphics);
-}
-*/
-SKY_AUTO_STATIC_HOOK(RayTracingsetLightingModel, memory::HookPriority::Normal,
-                     std::initializer_list<const char *>({// Win 1.21.60
-                                                          "89 51 ? 85 D2 74"}),
-                     void, void *a1, LightingModels lightingModel) {
-  if (shouldForceEnableNewVideoSettings()) {
-    if (globalGraphicsMode == 2) {
-      if (lightingModel == LightingModels::Vanilla) {
-        lightingModel = LightingModels::Deferred;
-      }
-    }
-  }
-  origin(a1, lightingModel);
+SKY_AUTO_STATIC_HOOK(HOOK2, memory::HookPriority::Normal,
+                     "88 51 ? C3 CC CC CC CC CC CC CC CC CC CC CC CC 80 79 ? "
+                     "? 75 ? 83 79 ? ? 74 ? 32 C0 C3",
+                     void, __int64 a1, bool a2) {
+  origin(a1, false);
 }
 
 SKY_AUTO_STATIC_HOOK(
-    bgfxsetLightingModel, memory::HookPriority::Normal,
-    std::initializer_list<const char *>({// Win 1.21.70
-                                         "39 91 ? ? ? ? 89 91"}),
-    char, void *a1, LightingModels lightingModel, char *a3) {
-  if (shouldForceEnableNewVideoSettings()) {
-    if (globalGraphicsMode == 2) {
-      if (lightingModel == LightingModels::Vanilla) {
-        lightingModel = LightingModels::Deferred;
-      }
-    }
-  }
-  return origin(a1, lightingModel, a3);
-}
-
-SKY_AUTO_STATIC_HOOK(getGraphicsMode, memory::HookPriority::Normal,
-                     std::initializer_list<const char *>(
-                         {// Win 1.21.60
-                          "40 53 48 83 EC 20 48 8B 01 48 8B D9 48 8B 80 ? ? ? "
-                          "? FF 15 ? ? ? ? 84 C0 74 ? B0 02"}),
-                     char, void *a1) {
-  char result = origin(a1);
-  globalGraphicsMode = result;
-  return result;
-}
-
-// BaseOptions::get
-SKY_AUTO_STATIC_HOOK(
-    Option_get, memory::HookPriority::Normal,
-    std::initializer_list<const char *>(
-        {// Win 1.21.50
-         "48 89 5C 24 ? 48 89 74 24 ? 57 48 81 EC 80 00 00 00 33 C0"}),
-    void *, void *This, int a3) {
-  auto res = origin(This, a3);
-  if (a3 == NEW_VIDEO_SETTINGS) {
-    brd::Options::newVideoSettingsAvailable = true;
-    if (shouldForceEnableNewVideoSettings()) {
-      *(bool *)((uintptr_t)res + 0x10) = true;
-      *(bool *)((uintptr_t)res + 0x11) = true;
-    }
-  }
-  return res;
-}
-
-// GeneralSettingsScreenController::_registerControllerCallbacks
-SKY_AUTO_STATIC_HOOK(
-    GeneralSettingsScreenControllerHOOK, memory::HookPriority::Normal,
-    std::initializer_list<const char *>(
-        {// Win 1.21.50
-         "48 89 5C 24 ? 57 48 83 EC 50 48 8B D9 C7 44 24",
-         // Win 1.21.80
-         "48 89 5C 24 ? 48 89 74 24 ? 57 48 83 EC 60 C7 44 24 ? ? ? ? ? 48 8B "
-         "39"}),
-    bool, void *a1) {
-  if (shouldForceEnableNewVideoSettings()) {
-    return true;
-  }
-  return origin(a1);
+    HOOK23, memory::HookPriority::Normal,
+    "48 89 5C 24 ? 48 89 74 24 ? 55 57 41 55 41 56 41 57 48 8D 6C 24 ? 48 81 "
+    "EC C0 00 00 00 48 8B 05 ? ? ? ? 48 33 C4 48 89 45 ? C7 45",
+    __int64, __int64 a1) {
+  return 1;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -186,15 +91,8 @@ PFN_ResourcePackManager_load ResourcePackManager_load;
 SKY_AUTO_STATIC_HOOK(
     ResourcePackManagerConstructor, memory::HookPriority::Normal,
     std::initializer_list<const char *>(
-        {// 1.21.50
-         "4C 8B DC 53 55 56 57 41 54 41 56 41 57 48 81 EC A0 00 00 00 41 0F B6 "
-         "E9",
-         // 1.21.60
-         "4C 8B DC 49 89 5B ? 49 89 53 ? 49 89 4B ? 55 56 57 41 56",
-         // 1.21.80
-         "4C 8B DC 49 89 5B ? 49 89 6B ? 49 89 53 ? 49 89 4B"
-
-        }),
+        {// 1.21.90
+         "4C 8B DC 49 89 5B ? 49 89 53 ? 49 89 4B ? 55 56 57 41 56"}),
     void *, void *This, uintptr_t a2, uintptr_t a3, bool needsToInitialize) {
 
   void *result = origin(This, a2, a3, needsToInitialize);
@@ -211,13 +109,7 @@ SKY_AUTO_STATIC_HOOK(
 SKY_AUTO_STATIC_HOOK(
     readAssetFileHOOK, memory::HookPriority::Normal,
     std::initializer_list<const char *>(
-        {// 1.21.50
-         "48 89 5C 24 ? 55 56 57 48 8D 6C 24 ? 48 81 EC 50 01 00 00 48 8B "
-         "05 ? ? ? ? 48 33 C4 48 89 45 ? 49 8B F0 48 8B FA 48 89 55 ? 0F "
-         "57 C9 F3 0F 7F 4D ? 0F B6 5C 24 ? 80 E3 A1 80 CB 21 BA 28 00 00 "
-         "00 65 48 8B 04 25 ? ? ? ? 48 8B 08 8B 04 0A 39 05 ? ? ? ? 0F 8F "
-         "? ? ? ? 48 8B 05 ? ? ? ? C7 44 24 ? ? ? ? ? 88 5C 24 ? 4C 8D",
-         // 1.21.60
+        {// 1.21.60
          "48 89 5C 24 ? 48 89 7C 24 ? 55 48 8D 6C 24 ? 48 81 EC 60 01 00 00 48 "
          "8B 05 ? ? ? ? 48 33 C4 48 89 45 ? 48 8B FA"}),
     std::string *, void *This, std::string *retstr, Core::Path &path) {
@@ -235,6 +127,7 @@ SKY_AUTO_STATIC_HOOK(
 
       bool success =
           ResourcePackManager_load(resourcePackManager, location, out);
+      std::cout << success << std::endl;
       if (success && !out.empty()) {
         bool successful_update = true;
         struct Buffer outbufdata = {0, 0};
@@ -297,7 +190,10 @@ SKY_AUTO_STATIC_HOOK(
          "B8 00 32 00 00",
          // 1.21.80
          "48 89 5C 24 ? 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 ? ? ? ? "
-         "B8 60 33 00 00"}),
+         "B8 60 33 00 00",
+         // 1.21.90
+         "48 89 5C 24 ? 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 ? ? ? ? "
+         "B8 40 34 00 00"}),
     void, uintptr_t This, uintptr_t frameBuilderContext) {
   bool clear = false;
   if (brd::Options::reloadShadersAvailable && brd::Options::reloadShaders) {

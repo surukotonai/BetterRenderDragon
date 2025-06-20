@@ -1,7 +1,9 @@
 // clang-format off
 #include <windows.h>
 #include <psapi.h>
-#include <atlbase.h>
+
+#include <wrl/client.h>
+using Microsoft::WRL::ComPtr;
 
 #include <initguid.h>
 #include <d3d12.h>
@@ -34,14 +36,14 @@ static bool imguiInitialized = false;
 //=======================================================================================================================================================================
 
 namespace ImGuiD3D12 {
-CComPtr<ID3D12Device> device;
-CComPtr<ID3D12DescriptorHeap> descriptorHeapBackBuffers;
-CComPtr<ID3D12DescriptorHeap> descriptorHeapImGuiRender;
+ComPtr<ID3D12Device> device;
+ComPtr<ID3D12DescriptorHeap> descriptorHeapBackBuffers;
+ComPtr<ID3D12DescriptorHeap> descriptorHeapImGuiRender;
 ID3D12CommandQueue *commandQueue;
 
 struct BackBufferContext {
-  CComPtr<ID3D12CommandAllocator> commandAllocator;
-  CComPtr<ID3D12GraphicsCommandList> commandList;
+  ComPtr<ID3D12CommandAllocator> commandAllocator;
+  ComPtr<ID3D12GraphicsCommandList> commandList;
   ID3D12Resource *resource = nullptr;
   D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle = {0};
 };
@@ -56,11 +58,11 @@ void createRT(IDXGISwapChain *swapChain) {
       descriptorHeapBackBuffers->GetCPUDescriptorHandleForHeapStart();
 
   for (uint32_t i = 0; i < backBufferCount; i++) {
-    ID3D12Resource *pBackBuffer = nullptr;
+    ComPtr<ID3D12Resource> pBackBuffer = nullptr;
     backBufferContext[i].descriptorHandle = rtvHandle;
     swapChain->GetBuffer(i, IID_PPV_ARGS(&pBackBuffer));
-    device->CreateRenderTargetView(pBackBuffer, nullptr, rtvHandle);
-    backBufferContext[i].resource = pBackBuffer;
+    device->CreateRenderTargetView(pBackBuffer.Get(), nullptr, rtvHandle);
+    backBufferContext[i].resource = pBackBuffer.Detach();
     rtvHandle.ptr += rtvDescriptorSize;
   }
 }
@@ -75,7 +77,7 @@ void releaseRT() {
 }
 
 bool initializeImguiBackend(IDXGISwapChain *pSwapChain) {
-  if (SUCCEEDED(pSwapChain->GetDevice(IID_ID3D12Device, (void **)&device))) {
+  if (SUCCEEDED(pSwapChain->GetDevice(IID_PPV_ARGS(&device)))) {
     brd::Options::vanilla2DeferredAvailable = true;
     rendererType = "Direct3D 12";
 
@@ -96,7 +98,7 @@ bool initializeImguiBackend(IDXGISwapChain *pSwapChain) {
 
       if (device->CreateCommandList(
               0, D3D12_COMMAND_LIST_TYPE_DIRECT,
-              backBufferContext[i].commandAllocator, nullptr,
+              backBufferContext[i].commandAllocator.Get(), nullptr,
               IID_PPV_ARGS(&backBufferContext[i].commandList)) != S_OK ||
           backBufferContext[i].commandList->Close() != S_OK) {
         return false;
@@ -130,8 +132,8 @@ bool initializeImguiBackend(IDXGISwapChain *pSwapChain) {
 
     ImGui_ImplWinRT_Init(coreWindow);
     ImGui_ImplDX12_Init(
-        device, backBufferCount, DXGI_FORMAT_R8G8B8A8_UNORM,
-        descriptorHeapImGuiRender,
+        device.Get(), backBufferCount, DXGI_FORMAT_R8G8B8A8_UNORM,
+        descriptorHeapImGuiRender.Get(),
         descriptorHeapImGuiRender->GetCPUDescriptorHandleForHeapStart(),
         descriptorHeapImGuiRender->GetGPUDescriptorHandleForHeapStart());
     ImGui_ImplDX12_CreateDeviceObjects();
@@ -157,9 +159,9 @@ void renderImGui(IDXGISwapChain3 *swapChain) {
   barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
   barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
 
-  ID3D12DescriptorHeap *descriptorHeaps[1] = {descriptorHeapImGuiRender.p};
-  currentBufferContext.commandList->Reset(currentBufferContext.commandAllocator,
-                                          nullptr);
+  ID3D12DescriptorHeap *descriptorHeaps[1] = {descriptorHeapImGuiRender.Get()};
+  currentBufferContext.commandList->Reset(
+      currentBufferContext.commandAllocator.Get(), nullptr);
   currentBufferContext.commandList->ResourceBarrier(1, &barrier);
   currentBufferContext.commandList->OMSetRenderTargets(
       1, &currentBufferContext.descriptorHandle, FALSE, nullptr);
@@ -167,9 +169,9 @@ void renderImGui(IDXGISwapChain3 *swapChain) {
 
   ImGui::Render();
   ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(),
-                                currentBufferContext.commandList);
+                                currentBufferContext.commandList.Get());
 
-  ID3D12CommandList *commandLists[1] = {currentBufferContext.commandList.p};
+  ID3D12CommandList *commandLists[1] = {currentBufferContext.commandList.Get()};
   barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
   barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
   currentBufferContext.commandList->ResourceBarrier(1, &barrier);
@@ -181,8 +183,8 @@ PFN_IDXGISwapChain_Present Original_IDXGISwapChain_Present = nullptr;
 HRESULT STDMETHODCALLTYPE IDXGISwapChain_Present_Hook(IDXGISwapChain *This,
                                                       UINT SyncInterval,
                                                       UINT Flags) {
-  CComPtr<IDXGISwapChain3> swapChain3;
-  if (FAILED(This->QueryInterface<IDXGISwapChain3>(&swapChain3))) {
+  ComPtr<IDXGISwapChain3> swapChain3;
+  if (FAILED(This->QueryInterface(IID_PPV_ARGS(&swapChain3)))) {
     return Original_IDXGISwapChain_Present(This, SyncInterval, Flags);
   }
 
@@ -196,7 +198,7 @@ HRESULT STDMETHODCALLTYPE IDXGISwapChain_Present_Hook(IDXGISwapChain *This,
     }
   }
 
-  renderImGui(swapChain3);
+  renderImGui(swapChain3.Get());
 
   return Original_IDXGISwapChain_Present(This, SyncInterval, Flags);
 }
@@ -217,18 +219,18 @@ HRESULT STDMETHODCALLTYPE IDXGISwapChain_ResizeBuffers_Hook(
 
 namespace ImGuiD3D11 {
 ID3D11Device *device;
-CComPtr<ID3D11DeviceContext> deviceContext;
+ComPtr<ID3D11DeviceContext> deviceContext;
 
 uint32_t backBufferCount = 0;
 ID3D11RenderTargetView **renderTargetViews;
 
 void createRT(IDXGISwapChain *swapChain) {
   for (uint32_t i = 0; i < backBufferCount; i++) {
-    CComPtr<ID3D11Resource> backBuffer;
+    ComPtr<ID3D11Resource> backBuffer;
     swapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffer));
 
     ID3D11RenderTargetView *rtv;
-    device->CreateRenderTargetView(backBuffer, nullptr, &rtv);
+    device->CreateRenderTargetView(backBuffer.Get(), nullptr, &rtv);
 
     renderTargetViews[i] = rtv;
   }
@@ -260,7 +262,7 @@ bool initializeImguiBackend(IDXGISwapChain *pSwapChain) {
   createRT(pSwapChain);
 
   ImGui_ImplWinRT_Init(coreWindow);
-  ImGui_ImplDX11_Init(device, deviceContext);
+  ImGui_ImplDX11_Init(device, deviceContext.Get());
   ImGui_ImplDX11_CreateDeviceObjects();
 
   return true;
@@ -284,13 +286,13 @@ PFN_IDXGISwapChain_Present Original_IDXGISwapChain_Present = nullptr;
 HRESULT STDMETHODCALLTYPE IDXGISwapChain_Present_Hook(IDXGISwapChain *This,
                                                       UINT SyncInterval,
                                                       UINT Flags) {
-  CComPtr<IDXGISwapChain3> swapChain3;
-  if (FAILED(This->QueryInterface<IDXGISwapChain3>(&swapChain3))) {
+  ComPtr<IDXGISwapChain3> swapChain3;
+  if (FAILED(This->QueryInterface(IID_PPV_ARGS(&swapChain3)))) {
     return Original_IDXGISwapChain_Present(This, SyncInterval, Flags);
   }
 
   if (imguiInitialized) {
-    renderImGui(swapChain3);
+    renderImGui(swapChain3.Get());
   }
 
   return Original_IDXGISwapChain_Present(This, SyncInterval, Flags);
@@ -323,9 +325,9 @@ HRESULT STDMETHODCALLTYPE IDXGIFactory2_CreateSwapChainForCoreWindow_Hook(
       This, pDevice, pWindow, pDesc, pRestrictToOutput, ppSwapChain);
   if (SUCCEEDED(hResult)) {
     IDXGISwapChain1 *swapChain = *ppSwapChain;
-    CComPtr<ID3D12CommandQueue> d3d12CommandQueue;
-    CComPtr<ID3D11Device> d3d11Device;
-    if (SUCCEEDED(pDevice->QueryInterface(&d3d12CommandQueue))) {
+    ComPtr<ID3D12CommandQueue> d3d12CommandQueue;
+    ComPtr<ID3D11Device> d3d11Device;
+    if (SUCCEEDED(pDevice->QueryInterface(IID_PPV_ARGS(&d3d12CommandQueue)))) {
       // Direct3D 12
       ImGuiD3D12::commandQueue = (ID3D12CommandQueue *)pDevice;
       if (!ImGuiD3D12::Original_IDXGISwapChain_Present)
@@ -342,7 +344,7 @@ HRESULT STDMETHODCALLTYPE IDXGIFactory2_CreateSwapChainForCoreWindow_Hook(
       // be called in a non-main thread and later IDXGISwapChain::Present will
       // be called three times in the main thread, so initialize ImGui later in
       // IDXGISwapChain::Present
-    } else if (SUCCEEDED(pDevice->QueryInterface(&d3d11Device))) {
+    } else if (SUCCEEDED(pDevice->QueryInterface(IID_PPV_ARGS(&d3d11Device)))) {
       // Direct3D 11
       ImGuiD3D11::device = (ID3D11Device *)pDevice;
       if (!ImGuiD3D11::Original_IDXGISwapChain_Present)

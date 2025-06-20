@@ -107,12 +107,6 @@ void updateImGui() {
         if (!Options::vanilla2DeferredAvailable)
           ImGui::BeginDisabled();
         ImGui::Indent();
-        if (Options::newVideoSettingsAvailable)
-          ImGui::Checkbox("Force Enable Deferred Technical Preview",
-                          Options::forceEnableDeferredTechnicalPreview.ptr());
-        else
-          ImGui::Checkbox("Enable Deferred Rendering",
-                          Options::deferredRenderingEnabled.ptr());
         ImGui::Checkbox("Disable RTX (Requires restart)",
                         Options::disableRendererContextD3D12RTX.ptr());
         ImGui::Unindent();

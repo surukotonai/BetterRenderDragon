@@ -30,7 +30,7 @@ target("BetterRenderDragon")
     add_headerfiles("src/(**.h)")
     add_includedirs("./src")
     add_includedirs("./include")
-    add_defines("UNICODE")
+    add_defines("UNICODE","_HAS_CXX23=1")
     add_files("src/**.cpp")
 
     if is_plat("windows") then
@@ -38,5 +38,5 @@ target("BetterRenderDragon")
         add_packages("memorymodulepp","cpr","detours","fmt","ctre","magic_enum","imgui","nlohmann_json","entt","glm","gsl","leveldb","rapidjson","type_safe","expected-lite")
         remove_files("src/api/memory/android/**.cpp","src/api/memory/android/**.h")
         add_cxflags("/utf-8", "/EHa")
-        add_links("runtimeobject","dxgi","ws2_32","ntdll","userenv","materialbin")
+        add_links("ntdll","userenv","materialbin","windowsapp")
     end

@@ -4,6 +4,9 @@
 #include <Windows.Storage.h>
 #include <iomanip> // For std::setw
 #include <nlohmann/json.hpp>
+#include <string>
+#include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Storage.h>
 #include <winrt/base.h>
 #include <wrl.h>
 #include <wrl/wrappers/corewrappers.h>
@@ -74,31 +77,15 @@ struct WinRTApartmentInit {
 static WinRTApartmentInit _apartment_init;
 
 std::string getMinecraftModsPath() {
-  PWSTR path = NULL;
-  HRESULT hr = SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, NULL, &path);
-  if (SUCCEEDED(hr)) {
-    char buf[MAX_PATH];
-    wcstombs(buf, path, MAX_PATH);
-    CoTaskMemFree(path);
-    return std::string(buf) +
-           "\\Packages\\Microsoft.MinecraftUWP_8wekyb3d8bbwe\\LocalState\\mods";
-  }
+  winrt::init_apartment();
 
-  char *userProfile = getenv("USERPROFILE");
-  if (userProfile) {
-    return std::string(userProfile) +
-           "\\AppData\\Local\\Packages\\Microsoft.MinecraftUWP_"
-           "8wekyb3d8bbwe\\LocalState\\mods";
-  }
+  winrt::Windows::Storage::StorageFolder localFolder =
+      winrt::Windows::Storage::ApplicationData::Current().LocalFolder();
 
-  char *homeDrive = getenv("HOMEDRIVE");
-  char *homePath = getenv("HOMEPATH");
-  if (homeDrive && homePath) {
-    return std::string(homeDrive) + std::string(homePath) +
-           "\\AppData\\Local\\Packages\\Microsoft.MinecraftUWP_"
-           "8wekyb3d8bbwe\\LocalState\\mods";
-  }
-  return ".";
+  std::wstring path = localFolder.Path().c_str();
+  path += L"\\mods";
+
+  return std::string(path.begin(), path.end());
 }
 
 // ----------------- 选项处理函数 -----------------

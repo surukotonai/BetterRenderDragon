@@ -223,6 +223,9 @@ public:
 namespace brstd {
 template <typename T, typename U = T>
 class function_ref;
+
+template <typename T>
+class move_only_function;
 }
 
 namespace rtc {
