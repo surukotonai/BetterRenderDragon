@@ -10,24 +10,11 @@
 #include <io.h>
 
 void initMCHooks();
-void openConsole() {
-  if (AllocConsole()) {
-    SetConsoleTitleA("PreLoader Debug Console");
 
-    FILE *stream;
-    freopen_s(&stream, "CONOUT$", "w", stdout);
-    freopen_s(&stream, "CONOUT$", "w", stderr);
-    freopen_s(&stream, "CONIN$", "r", stdin);
-
-    setvbuf(stdout, nullptr, _IONBF, 0);
-    setvbuf(stderr, nullptr, _IONBF, 0);
-  }
-}
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
                       LPVOID lpReserved) {
   switch (ul_reason_for_call) {
   case DLL_PROCESS_ATTACH: {
-    openConsole();
     brd::Options::init();
     brd::Options::load();
 
