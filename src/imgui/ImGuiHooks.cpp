@@ -315,6 +315,43 @@ HRESULT STDMETHODCALLTYPE IDXGISwapChain_ResizeBuffers_Hook(
 } // namespace ImGuiD3D11
 
 //=======================================================================================================================================================================
+static LRESULT WINAPI WndProc(HWND hWnd, UINT uMsg, WPARAM wParam,
+                              LPARAM lParam) {
+
+  if (ImGui::GetCurrentContext()) {
+    ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam);
+
+    ImGuiIO &io = ImGui::GetIO();
+
+    if (io.WantCaptureMouse) {
+      switch (uMsg) {
+      case WM_LBUTTONDOWN:
+      case WM_LBUTTONUP:
+      case WM_RBUTTONDOWN:
+      case WM_RBUTTONUP:
+      case WM_MOUSEMOVE:
+      case WM_MOUSEWHEEL:
+      case WM_MOUSEHWHEEL:
+        return 0;
+      default:
+        break;
+      }
+    }
+
+    if (io.WantCaptureKeyboard) {
+      switch (uMsg) {
+      case WM_KEYDOWN:
+      case WM_KEYUP:
+      case WM_CHAR:
+        return 0;
+      default:
+        break;
+      }
+    }
+  }
+
+  return CallWindowProc(oWndProc, hWnd, uMsg, wParam, lParam);
+}
 
 PFN_IDXGIFactory2_CreateSwapChainForHwnd
     Original_IDXGIFactory2_CreateSwapChainForHwnd;
