@@ -4,7 +4,7 @@ add_repositories("liteldev-repo https://github.com/LiteLDev/xmake-repo.git")
 
 if is_plat("windows") then
     add_requires("detours v4.0.1-xmake.1")
-    add_requires("imgui v1.91.0-docking", {configs = {dx11 = true, dx12 = true,win32 = true}})
+    add_requires("imgui v1.92.4-docking", {configs = {dx11 = true, dx12 = true,win32 = true}})
     add_requires("leveldb 1.23")
     add_requires("memorymodulepp")
     set_runtimes("MD")
@@ -31,7 +31,7 @@ target("BetterRenderDragon")
     add_includedirs("./include")
     add_defines("UNICODE","_HAS_CXX23=1")
     add_files("src/**.cpp")
-
+    set_symbols("debug")
     if is_plat("windows") then
         add_linkdirs("lib")
         add_packages("memorymodulepp","cpr","detours","fmt","ctre","magic_enum","imgui","nlohmann_json","entt","glm","gsl","leveldb","rapidjson","type_safe","expected-lite")

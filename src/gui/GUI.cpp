@@ -7,12 +7,17 @@
 #include "Version.h"
 using namespace brd;
 
-void initializeImGui() {
+void initializeImGui(bool isDx12) {
   ImGui::CreateContext();
 
   ImGuiIO &io = ImGui::GetIO();
   io.IniFilename = nullptr;
   // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+  if (isDx12) {
+    unsigned char *pixels;
+    int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+  }
 }
 
 void updateImGui() {

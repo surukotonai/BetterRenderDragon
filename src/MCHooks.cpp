@@ -79,7 +79,8 @@ SKY_AUTO_STATIC_HOOK(ResourcePackManagerConstructor,
                      memory::HookPriority::Normal,
                      std::initializer_list<const char *>(
                          {// 1.21.90
-                          "4C 8B DC 49 89 5B ? 49 89 53 ? 49 89 4B ? 55 56 57 41 56 41 57 48 83 EC 70 41 0F B6 E9 4D"}),
+                          "4C 8B DC 49 89 5B ? 49 89 53 ? 49 89 4B ? 55 56 57 "
+                          "41 56 41 57 48 83 EC 70 41 0F B6 E9 4D"}),
                      void *, void *This, uintptr_t a2, uintptr_t a3,
                      bool needsToInitialize) {
 
@@ -104,7 +105,7 @@ SKY_AUTO_STATIC_HOOK(
   if (brd::Options::materialBinLoaderEnabled && brd::Options::redirectShaders &&
       resourcePackManager) {
     const std::string &p = path.getUtf8StdString();
-    if (p.find("/data/renderer/materials/") != std::string::npos &&
+    if (p.find("data/renderer/materials/") != std::string::npos &&
         strncmp(p.c_str() + p.size() - 13, ".material.bin", 13) == 0) {
 
       std::string binPath =
@@ -254,7 +255,8 @@ SKY_AUTO_STATIC_HOOK(HOOK1, memory::HookPriority::Normal,
 #elif defined(_WIN32)
 
 SKY_AUTO_STATIC_HOOK(HOOK1, memory::HookPriority::Normal,
-                     "80 79 ? ? 75 ? 80 79 ? ? 74 ? B0 01 C3 32 C0 C3 CC CC CC CC CC CC CC CC CC CC CC CC CC CC 88 51 ? C3",
+                     "80 79 ? ? 75 ? 80 79 ? ? 74 ? B0 01 C3 32 C0 C3 CC CC CC "
+                     "CC CC CC CC CC CC CC CC CC CC CC 88 51 ? C3",
                      bool, int64_t a1) {
   if (shouldForceEnableVibrantVisuals()) {
     *(bool *)(a1 + 56) = 1;

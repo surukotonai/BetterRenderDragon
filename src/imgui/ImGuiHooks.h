@@ -28,5 +28,3 @@ typedef HRESULT(STDMETHODCALLTYPE *PFN_IDXGISwapChain_ResizeBuffers)(
 //=========================================================================================================================//
 
 void initImGuiHooks();
-std::string getGPUName();
-std::string getRendererType();
