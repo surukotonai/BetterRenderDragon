@@ -48,6 +48,9 @@ SKY_AUTO_STATIC_HOOK(getGameVersionString, memory::HookPriority::Normal,
                      std::initializer_list<const char *>(
                          {// Win 1.21.60
                           "48 89 5C 24 ? 48 89 6C 24 ? 56 57 41 54 41 56 41 57 "
+                          "48 83 EC 60 48 8B F1 48 89 4C 24 ? 45 33 E4 48 8D "
+                          "4C 24 ? E8 ? ? ? ? 48 8B D8 48 8B 48",
+                          "48 89 5C 24 ? 48 89 6C 24 ? 56 57 41 54 41 56 41 57 "
                           "48 83 EC 60 48 8B F9 48 89 4C 24 ? 45 33 E4"}),
                      std::string, std::string *result) {
   auto version = origin(result);
@@ -68,6 +71,8 @@ SKY_AUTO_STATIC_HOOK(getGameVersionString, memory::HookPriority::Normal,
     MaterialResourceManagerOffset = 960;
   } else if (version.find("1.21.12") != std::string::npos) {
     MaterialResourceManagerOffset = 960;
+  } else if (version.find("1.21.13") != std::string::npos) {
+    MaterialResourceManagerOffset = 960;
   }
   return version;
 }
@@ -77,14 +82,16 @@ SKY_AUTO_STATIC_HOOK(getGameVersionString, memory::HookPriority::Normal,
 void *resourcePackManager = nullptr;
 PFN_ResourcePackManager_load ResourcePackManager_load;
 // ResourcePackManager::ResourcePackManager
-SKY_AUTO_STATIC_HOOK(ResourcePackManagerConstructor,
-                     memory::HookPriority::Normal,
-                     std::initializer_list<const char *>(
-                         {// 1.21.90
-                          "4C 8B DC 49 89 5B ? 49 89 53 ? 49 89 4B ? 55 56 57 "
-                          "41 56 41 57 48 83 EC 70 41 0F B6 E9 4D"}),
-                     void *, void *This, uintptr_t a2, uintptr_t a3,
-                     bool needsToInitialize) {
+SKY_AUTO_STATIC_HOOK(
+    ResourcePackManagerConstructor, memory::HookPriority::Normal,
+    std::initializer_list<const char *>(
+        {// 1.21.130
+         "48 89 5C 24 ? 55 56 57 41 56 41 57 48 81 EC 90 00 00 00 48 8B 05 ? ? "
+         "? ? 48 33 C4 48 89 84 24 ? ? ? ? 41 0F B6 E9 4D 8B F0",
+         // 1.21.90
+         "4C 8B DC 49 89 5B ? 49 89 53 ? 49 89 4B ? 55 56 57 "
+         "41 56 41 57 48 83 EC 70 41 0F B6 E9 4D"}),
+    void *, void *This, uintptr_t a2, uintptr_t a3, bool needsToInitialize) {
 
   void *result = origin(This, a2, a3, needsToInitialize);
   if (needsToInitialize && !resourcePackManager) {
@@ -100,7 +107,10 @@ SKY_AUTO_STATIC_HOOK(ResourcePackManagerConstructor,
 SKY_AUTO_STATIC_HOOK(
     readAssetFileHOOK, memory::HookPriority::Normal,
     std::initializer_list<const char *>(
-        {// 1.21.120
+        {// 1.21.130
+         "48 89 5C 24 ? 48 89 74 24 ? 48 89 7C 24 ? 55 48 8D 6C 24 ? 48 81 EC "
+         "F0 00 00 00 48 8B F2",
+         // 1.21.120
          "48 89 5C 24 ? 55 56 57 48 8D AC 24 ? ? ? ? 48 81 EC A0 04 00 00"}),
     std::string *, void *This, std::string *retstr, Core::Path &path) {
   std::string *result = origin(This, retstr, path);
@@ -172,7 +182,10 @@ bool discardFrameAndClearShaderCaches(uintptr_t bgfxFrameBuilder) {
 SKY_AUTO_STATIC_HOOK(mce_framebuilder_BgfxFrameBuilder_endFrame,
                      memory::HookPriority::Normal,
                      std::initializer_list<const char *>(
-                         {// 1.21.120
+                         {// 1.21.130
+                          "48 89 5C 24 ? 55 56 57 41 54 41 55 41 56 41 57 48 "
+                          "8D AC 24 ? ? ? ? B8 20 1D 00 00",
+                          // 1.21.120
                           "48 89 5C 24 ? 55 56 57 41 54 41 55 41 56 41 57 48 "
                           "8D AC 24 ? ? ? ? B8 10 1D 00 00"}),
                      void, uintptr_t This, uintptr_t frameBuilderContext) {
@@ -222,7 +235,11 @@ void initMCHooks() {
 
   discardFrame = (PFN_mce_framebuilder_BgfxFrameBuilder_discardFrame)
       memory::resolveIdentifier(
-          {"48 89 5C 24 ? 48 89 6C 24 ? 48 89 74 24 ? "
+          {// 1.21.130
+           "48 89 5C 24 ? 48 89 6C 24 ? 48 89 74 24 ? 57 41 54 41 55 41 56 41 "
+           "57 48 81 EC 90 00 00 00 88 54 24",
+           // 1.21.120
+           "48 89 5C 24 ? 48 89 6C 24 ? 48 89 74 24 ? "
            "57 41 54 41 55 41 56 41 "
            "57 48 81 EC 90 00 00 00 48 8B 05 ? ? ? ? "
            "48 33 C4 48 89 84 24 ? ? "
@@ -238,7 +255,12 @@ void initMCHooks() {
   freeShaderBlobs =
       (PFN_dragon_materials_CompiledMaterialManager_freeShaderBlobs)
           memory::resolveIdentifier(
-              {"48 89 5C 24 ? 48 89 6C 24 ? 48 89 74 24 ? 57 41 54 41 55 41 "
+              {// 1.21.130
+               "48 89 5C 24 ? 48 89 6C 24 ? 48 89 74 24 ? 57 41 54 41 55 41 56 "
+               "41 "
+               "57 48 83 EC 30 4C 8B E9 48 83 C1 40",
+
+               "48 89 5C 24 ? 48 89 6C 24 ? 48 89 74 24 ? 57 41 54 41 55 41 "
                "56 "
                "41 57 48 83 EC 20 4C 8B E9 48 83 C1 40"});
   if (!freeShaderBlobs) {
