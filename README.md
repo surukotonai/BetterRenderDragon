@@ -1,3 +1,1 @@
-# 🚀 BetterRenderDragon
-
-# Waiting to rewrite
+**Due to personal circumstances, this project may no longer be feasible, and there are still many unresolved issues. I hope someone will be able to take it over, as I no longer have the energy to continue working on it.**
