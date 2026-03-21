@@ -1,5 +1,8 @@
 #include <windows.h>
 #include <wrl/client.h>
+
+#include "MinHook.h"
+#include "api/memory/HookAPI.hpp"
 using Microsoft::WRL::ComPtr;
 
 #include <atomic>
@@ -18,7 +21,6 @@ using Microsoft::WRL::ComPtr;
 
 #include "ImGuiHooks.h"
 #include "api/memory/Hook.h"
-#include "api/memory/win/Memory.h"
 #include "gui/GUI.h"
 
 static HWND g_hWnd = nullptr;
@@ -58,8 +60,16 @@ static void InitImGuiDX12() {
   if (ctx.initialized)
     return;
 
+  if (!ctx.device || !ctx.swapchain || !ctx.queue) {
+    Logger::log("InitImGuiDX12 failed!!!");
+    return;
+  }
+
   DXGI_SWAP_CHAIN_DESC desc{};
-  ctx.swapchain->GetDesc(&desc);
+  if (FAILED(ctx.swapchain->GetDesc(&desc))) {
+    Logger::log("swapchain->GetDesc failed");
+    return;
+  }
   ctx.hwnd = desc.OutputWindow;
   ctx.backBufferCount = desc.BufferCount;
 
@@ -164,18 +174,26 @@ PFN_IDXGISwapChain_ResizeBuffers Original_IDXGISwapChain_ResizeBuffers_DX12 =
 HRESULT STDMETHODCALLTYPE IDXGISwapChain_Present_Hook(IDXGISwapChain *This,
                                                       UINT SyncInterval,
                                                       UINT Flags) {
+  if (!This) {
+    return Original_IDXGISwapChain_Present(This, SyncInterval, Flags);
+  }
+
   ComPtr<IDXGISwapChain3> swapChain3;
   if (FAILED(This->QueryInterface(IID_PPV_ARGS(&swapChain3)))) {
     return Original_IDXGISwapChain_Present(This, SyncInterval, Flags);
   }
 
-  auto &ctx = ImGuiD3D12::ImGuiDX12Resources::Get();
-  if (!ctx.initialized && ctx.device && ctx.swapchain && ctx.queue) {
-    InitImGuiDX12();
-  }
+  try {
+    auto &ctx = ImGuiD3D12::ImGuiDX12Resources::Get();
+    if (!ctx.initialized && ctx.device && ctx.swapchain && ctx.queue) {
+      InitImGuiDX12();
+    }
 
-  if (ctx.initialized) {
-    RenderImGuiDX12();
+    if (ctx.initialized) {
+      RenderImGuiDX12();
+    }
+  } catch (const std::exception& e) {
+    Logger::log("Exception: %s", e.what());
   }
 
   return Original_IDXGISwapChain_Present(This, SyncInterval, Flags);
@@ -184,6 +202,7 @@ HRESULT STDMETHODCALLTYPE IDXGISwapChain_Present_Hook(IDXGISwapChain *This,
 HRESULT STDMETHODCALLTYPE IDXGISwapChain_ResizeBuffers_Hook(
     IDXGISwapChain *This, UINT BufferCount, UINT Width, UINT Height,
     DXGI_FORMAT NewFormat, UINT SwapChainFlags) {
+  Logger::log("IDXGISwapChain_ResizeBuffers_Hook called");
   auto &ctx = ImGuiD3D12::ImGuiDX12Resources::Get();
 
   ComPtr<ID3D12Fence> fence;
@@ -312,6 +331,7 @@ PFN_IDXGISwapChain_ResizeBuffers Original_IDXGISwapChain_ResizeBuffers;
 HRESULT STDMETHODCALLTYPE IDXGISwapChain_ResizeBuffers_Hook(
     IDXGISwapChain *This, UINT BufferCount, UINT Width, UINT Height,
     DXGI_FORMAT NewFormat, UINT SwapChainFlags) {
+  Logger::log("IDXGISwapChain_ResizeBuffers_Hook called");
   releaseRT();
   HRESULT hResult = Original_IDXGISwapChain_ResizeBuffers(
       This, BufferCount, Width, Height, NewFormat, SwapChainFlags);
@@ -322,10 +342,19 @@ HRESULT STDMETHODCALLTYPE IDXGISwapChain_ResizeBuffers_Hook(
 
 static LRESULT WINAPI WndProc(HWND hWnd, UINT uMsg, WPARAM wParam,
                               LPARAM lParam) {
-  if (ImGui::GetCurrentContext())
-    ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam);
+  if (hWnd == g_hWnd && ImGui::GetCurrentContext()) {
+    try {
+      ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam);
+    } catch (...) {
+      Logger::log("ImGui exception");
+    }
+  }
 
-  return CallWindowProc(oWndProc, hWnd, uMsg, wParam, lParam);
+  if (oWndProc) {
+    return CallWindowProc(oWndProc, hWnd, uMsg, wParam, lParam);
+  }
+
+  return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 
 PFN_IDXGIFactory2_CreateSwapChainForHwnd
@@ -336,6 +365,7 @@ HRESULT STDMETHODCALLTYPE IDXGIFactory2_CreateSwapChainForHwnd_Hook(
     const DXGI_SWAP_CHAIN_DESC1 *pDesc,
     const DXGI_SWAP_CHAIN_FULLSCREEN_DESC *pFullDesc,
     IDXGIOutput *pRestrictToOutput, IDXGISwapChain1 **ppSwapChain) {
+  Logger::log("IDXGIFactory2_CreateSwapChainForHwnd_Hook called");
 
   g_hWnd = hWnd;
   oWndProc = reinterpret_cast<WNDPROC>(SetWindowLongPtr(
@@ -350,6 +380,7 @@ HRESULT STDMETHODCALLTYPE IDXGIFactory2_CreateSwapChainForHwnd_Hook(
     ComPtr<ID3D11Device> d3d11Device;
 
     if (SUCCEEDED(pDevice->QueryInterface(IID_PPV_ARGS(&d3d12CommandQueue)))) {
+      Logger::log("dx12");
       auto &ctx = ImGuiD3D12::ImGuiDX12Resources::Get();
       swapChain->GetDevice(IID_PPV_ARGS(&ctx.device));
       ctx.queue = d3d12CommandQueue.Get();
@@ -364,6 +395,7 @@ HRESULT STDMETHODCALLTYPE IDXGIFactory2_CreateSwapChainForHwnd_Hook(
           (void **)&ImGuiD3D12::Original_IDXGISwapChain_ResizeBuffers_DX12,
           ImGuiD3D12::IDXGISwapChain_ResizeBuffers_Hook);
     } else if (SUCCEEDED(pDevice->QueryInterface(IID_PPV_ARGS(&d3d11Device)))) {
+      Logger::log("dx11");
       ImGuiD3D11::device = (ID3D11Device *)pDevice;
       memory::ReplaceVtable(
           *(void **)swapChain, 8,
@@ -374,7 +406,7 @@ HRESULT STDMETHODCALLTYPE IDXGIFactory2_CreateSwapChainForHwnd_Hook(
           (void **)&ImGuiD3D11::Original_IDXGISwapChain_ResizeBuffers,
           ImGuiD3D11::IDXGISwapChain_ResizeBuffers_Hook);
       if (!(imguiInitialized = ImGuiD3D11::initializeImguiBackend(swapChain)))
-        printf("Failed to initialize ImGui on Direct3D 11\n");
+        Logger::log("Failed to initialize ImGui on Direct3D 11");
     }
   }
 
@@ -384,35 +416,54 @@ HRESULT STDMETHODCALLTYPE IDXGIFactory2_CreateSwapChainForHwnd_Hook(
 HRESULT (*createDXGIFactory1Original)(REFIID riid, void **ppFactory) = nullptr;
 
 HRESULT createDXGIFactory1Hook(REFIID riid, void **ppFactory) {
+  Logger::log("createDXGIFactory1Hook called");
   HRESULT hResult = createDXGIFactory1Original(riid, ppFactory);
   if (SUCCEEDED(hResult)) {
     IDXGIFactory2 *factory2 = (IDXGIFactory2 *)*ppFactory;
     if (!Original_IDXGIFactory2_CreateSwapChainForHwnd) {
-      memory::ReplaceVtable(
-          *(void **)factory2, 15,
-          (void **)&Original_IDXGIFactory2_CreateSwapChainForHwnd,
-          IDXGIFactory2_CreateSwapChainForHwnd_Hook);
+      if (factory2) {
+        factory2->AddRef();
+
+        memory::ReplaceVtable(
+            *(void **)factory2, 15,
+            (void **)&Original_IDXGIFactory2_CreateSwapChainForHwnd,
+            IDXGIFactory2_CreateSwapChainForHwnd_Hook);
+      }
     }
   }
   return hResult;
 }
 
-void initImGuiHooks() {
-  memory::hook(CreateDXGIFactory1, createDXGIFactory1Hook,
-               (memory::FuncPtr *)&createDXGIFactory1Original,
-               memory::HookPriority::Normal);
-}
-
-SKY_AUTO_STATIC_HOOK(
-    Mouse, memory::HookPriority::Normal,
-    "4C 8B DC 49 89 5B ? 49 89 6B ? 56 57 41 56 48 81 EC A0 00 00 00 48 8B 05 "
-    "? ? ? ? 48 33 C4 48 89 84 24 ? ? ? ? 41 0F B7 E9",
-    void, void *a1, void *a2, void *a3, void *a4) {
+DeclareHook(Mouse,void, void *a1, void *a2, void *a3, void *a4) {
   if (ImGui::GetCurrentContext()) {
     ImGuiIO &io = ImGui::GetIO();
     if (io.WantCaptureMouse) {
       return;
     }
   }
-  return origin(a1, a2, a3, a4);
+  return original(a1, a2, a3, a4);
+}
+
+void initImGuiHooks() {
+  HMODULE dxgiModule = GetModuleHandleA("dxgi.dll");
+  if (!dxgiModule)
+    dxgiModule = LoadLibraryA("dxgi.dll");
+
+  auto pCreateDXGIFactory1 = GetProcAddress(dxgiModule, "CreateDXGIFactory1");
+
+  if (!pCreateDXGIFactory1)
+    return;
+
+  MH_CreateHook(
+      pCreateDXGIFactory1,
+      &createDXGIFactory1Hook,
+      reinterpret_cast<void**>(&createDXGIFactory1Original)
+  );
+  MH_EnableHook(pCreateDXGIFactory1);
+  Logger::log("Hooked CreateDXGIFactory1");
+
+  TrySigHook(Mouse,
+    //1.21.130
+    "4C 8B ? 49 89 ? ? 49 89 ? ? 56 57 41 ? 48 81 EC ? ? ? ? 41 0F ? ? 45 0F"
+  );
 }

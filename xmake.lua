@@ -3,7 +3,8 @@ add_rules("mode.debug", "mode.release")
 add_repositories("liteldev-repo https://github.com/LiteLDev/xmake-repo.git")
 
 if is_plat("windows") then
-    add_requires("detours v4.0.1-xmake.1")
+    add_requires("minhook master")
+    add_requires("libhat master")
     add_requires("imgui v1.92.4-docking", {configs = {dx11 = true, dx12 = true,win32 = true}})
     add_requires("leveldb 1.23")
     add_requires("memorymodulepp")

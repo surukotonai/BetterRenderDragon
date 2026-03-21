@@ -37,32 +37,30 @@ private:
 };
 
 namespace Options {
-extern Option<bool> showImGui;
-extern Option<bool> performanceEnabled;
-extern Option<bool> windowSettingsEnabled;
+  extern Option<bool> showImGui;
+  extern Option<bool> performanceEnabled;
+  extern Option<bool> settingsEnabled;
 
-extern bool vanilla2DeferredAvailable;
-extern bool newVideoSettingsAvailable;
-extern Option<bool> vanilla2DeferredEnabled;
-extern Option<bool> deferredRenderingEnabled;
-extern Option<bool> forceEnableDeferredTechnicalPreview;
-extern Option<bool> disableRendererContextD3D12RTX;
-extern Option<bool> materialBinLoaderEnabled;
-extern Option<bool> redirectShaders;
-extern Option<bool> forceEnableVibrantVisuals;
-extern bool reloadShadersAvailable;
-extern std::atomic_bool reloadShaders;
-extern Option<bool> customUniformsEnabled;
-extern Option<int> uiKey;
-extern Option<int> reloadShadersKey;
+  extern bool vanilla2DeferredAvailable;
+  extern bool newVideoSettingsAvailable;
+  extern Option<bool> graphicsEnabled;
+  extern Option<bool> disableRendererContextD3D12RTX;
+  extern Option<bool> materialBinLoaderEnabled;
+  extern Option<bool> redirectShaders;
+  extern Option<bool> forceEnableVibrantVisuals;
+  extern bool reloadShadersAvailable;
+  extern std::atomic_bool reloadShaders;
+  extern Option<bool> customUniformsEnabled;
+  extern Option<int> uiKey;
+  extern Option<int> reloadShadersKey;
 
-extern std::string optionsDir;
-extern std::string optionsFile;
+  extern std::string optionsDir;
+  extern std::string optionsFile;
 
-bool init();
-bool load();
-bool save();
-void record();
-bool isDirty();
-} // namespace Options
+  bool init();
+  bool load();
+  bool save();
+  void record();
+  bool isDirty();
+  } // namespace Options
 } // namespace brd

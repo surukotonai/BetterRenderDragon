@@ -2,9 +2,6 @@
 #include <intrin.h>
 #include <windows.h>
 
-
-
-
 std::string getCPUName() {
   int CPUInfo[4] = {-1};
   char CPUBrandString[0x41];
