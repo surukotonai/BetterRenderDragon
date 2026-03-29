@@ -13,30 +13,29 @@
 #include "Global.h"
 #include "api/Logger.h"
 
-
 using nlohmann::json;
 
 namespace brd {
 // --- Option defs ---
 namespace Options {
-  Option<bool> showImGui = true;
-  Option<bool> performanceEnabled = true;
-  Option<bool> settingsEnabled = true;
-  bool vanilla2DeferredAvailable = true;
-  bool newVideoSettingsAvailable = false;
-  Option<bool> graphicsEnabled = true;
-  Option<bool> disableRendererContextD3D12RTX = false;
-  Option<bool> materialBinLoaderEnabled = true;
-  Option<bool> redirectShaders = true;
-  bool reloadShadersAvailable = false;
-  std::atomic_bool reloadShaders = false;
-  Option<bool> customUniformsEnabled = false;
-  Option<bool> forceEnableVibrantVisuals = true;
-  Option<int> uiKey = ImGuiKey_F6;
-  Option<int> reloadShadersKey = ImGuiKey_None;
+Option<bool> showImGui = true;
+Option<bool> performanceEnabled = true;
+Option<bool> settingsEnabled = true;
+bool vanilla2DeferredAvailable = true;
+bool newVideoSettingsAvailable = false;
+Option<bool> graphicsEnabled = true;
+Option<bool> disableRendererContextD3D12RTX = false;
+Option<bool> materialBinLoaderEnabled = true;
+Option<bool> redirectShaders = true;
+bool reloadShadersAvailable = true;
+std::atomic_bool reloadShaders = false;
+Option<bool> customUniformsEnabled = false;
+Option<bool> forceEnableVibrantVisuals = true;
+Option<int> uiKey = ImGuiKey_F6;
+Option<int> reloadShadersKey = ImGuiKey_None;
 
-  std::string optionsDir;
-  std::string optionsFile;
+std::string optionsDir;
+std::string optionsFile;
 } // namespace Options
 
 std::string wstringToString(const std::wstring &wstr) {
@@ -119,7 +118,7 @@ bool Options::load() {
     return false;
   } catch (...) {
     Logger::log("Failed to read options file: %s (unknown error)",
-           optionsFile.c_str());
+                optionsFile.c_str());
     return false;
   }
 
@@ -162,13 +161,13 @@ bool Options::save() {
                       std::ofstream::binary | std::ofstream::trunc);
     if (!ofs) {
       Logger::log("Failed to open options file for write: %s",
-             optionsFile.c_str());
+                  optionsFile.c_str());
       return false;
     }
     ofs << std::setw(4) << data << '\n';
   } catch (...) {
     Logger::log("Failed to write options file: %s (unknown error)",
-           optionsFile.c_str());
+                optionsFile.c_str());
     return false;
   }
   return true;
