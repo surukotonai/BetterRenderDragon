@@ -115,7 +115,7 @@ void initializeImGui(bool isDx12) {
 	ImFontConfig fontConfig;
 	fontConfig.FontDataOwnedByAtlas = false;
 
-	io.Fonts->AddFontFromMemoryTTF(pFontData, fileSize, 24.0f, &fontConfig);
+	io.FontDefault = io.Fonts->AddFontFromMemoryTTF(pFontData, fileSize, 24.0f, &fontConfig);
 
 	io.IniFilename = nullptr;
 	// io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
@@ -147,6 +147,10 @@ void updateImGui() {
 	if (Options::showImGui) {
 		auto &io = ImGui::GetIO();
 
+		if(io.FontGlobalScale != Options::fontSize.get()) {
+			io.FontGlobalScale = Options::fontSize.get();
+		}
+
 		ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
 		if (ImGui::Begin("BetterRenderDragon", Options::showImGui.ptr(),
 						 ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar)) {
@@ -165,6 +169,8 @@ void updateImGui() {
 					ImGui::EndMenu();
 				}
 				if (ImGui::BeginMenu("Windows")) {
+					ImGui::SliderFloat("Font size", &Options::fontSize.get(), 0.5f, 4.0f, "%.2f");
+					ImGui::Separator();
 					if (ImGui::MenuItem("Reset window position and size"))
 						resetLayout = true;
 					if (showModuleManager || showDemo)

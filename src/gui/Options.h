@@ -53,6 +53,7 @@ namespace Options {
   extern Option<bool> customUniformsEnabled;
   extern Option<int> uiKey;
   extern Option<int> reloadShadersKey;
+  extern Option<float> fontSize;
 
   extern std::string optionsDir;
   extern std::string optionsFile;

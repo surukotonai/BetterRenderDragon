@@ -53,10 +53,6 @@ void resetD3DState() {
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
-    for (auto &bufferData : wrappedBuffers) {
-        bufferData.wrapped.detach();
-        bufferData.native.detach();
-    }
     wrappedBuffers.clear();
     g_d3d11DeviceContext = nullptr;
     g_d3d11on12Device = nullptr;
@@ -100,6 +96,9 @@ HRESULT presentHook(IDXGISwapChain3 *pSwapChain, UINT SyncInterval, UINT Flags) 
         Logger::log("Initialized ImGui");
     }
 
+    winrt::com_ptr<ID3D11Resource> backBuffer{};
+    bool wrappedResourceAcquired = false;
+
     try {
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
@@ -108,7 +107,6 @@ HRESULT presentHook(IDXGISwapChain3 *pSwapChain, UINT SyncInterval, UINT Flags) 
 
         ImGui::Render();
 
-        winrt::com_ptr<ID3D11Resource> backBuffer{};
         if (g_d3d11on12Device) {
             DXGI_SWAP_CHAIN_DESC desc;
             winrt::check_hresult(pSwapChain->GetDesc(&desc));
@@ -133,6 +131,7 @@ HRESULT presentHook(IDXGISwapChain3 *pSwapChain, UINT SyncInterval, UINT Flags) 
             backBuffer.copy_from(wrappedBuffers[pSwapChain->GetCurrentBackBufferIndex()].wrapped.get());
             auto backBufferPtr = backBuffer.get();
             g_d3d11on12Device->AcquireWrappedResources(&backBufferPtr, 1);
+            wrappedResourceAcquired = true;
         } else {
             pSwapChain->GetBuffer(0, IID_PPV_ARGS(backBuffer.put()));
         }
@@ -149,11 +148,17 @@ HRESULT presentHook(IDXGISwapChain3 *pSwapChain, UINT SyncInterval, UINT Flags) 
         if (g_d3d11on12Device) {
             auto backBufferPtr = backBuffer.get();
             g_d3d11on12Device->ReleaseWrappedResources(&backBufferPtr, 1);
+            wrappedResourceAcquired = false;
         }
 
         g_d3d11DeviceContext->Flush();
     } catch (const winrt::hresult_error &e) {
         Logger::log("D3D error in presentHook: 0x%08X", static_cast<unsigned int>(e.code()));
+        if (wrappedResourceAcquired && g_d3d11on12Device && backBuffer) {
+            auto backBufferPtr = backBuffer.get();
+            g_d3d11on12Device->ReleaseWrappedResources(&backBufferPtr, 1);
+            g_d3d11DeviceContext->Flush();
+        }
         resetD3DState();
     }
 

@@ -33,6 +33,7 @@ Option<bool> customUniformsEnabled = false;
 Option<bool> forceEnableVibrantVisuals = true;
 Option<int> uiKey = ImGuiKey_F6;
 Option<int> reloadShadersKey = ImGuiKey_None;
+Option<float> fontSize = 1.0f;
 
 std::string optionsDir;
 std::string optionsFile;
@@ -71,6 +72,7 @@ bool Options::init() {
   options.push_back(&uiKey);
   options.push_back(&reloadShadersKey);
   options.push_back(&forceEnableVibrantVisuals);
+  options.push_back(&fontSize);
 
   if (optionsDir.empty()) {
     optionsDir = Global::GetBRDRaomingPath();
@@ -140,6 +142,8 @@ bool Options::load() {
     redirectShaders = data["redirectShaders"];
   if (data.contains("forceEnableVibrantVisuals"))
     forceEnableVibrantVisuals = data["forceEnableVibrantVisuals"];
+  if (data.contains("fontSize"))
+    fontSize = data["fontSize"];
 
   return true;
 }
@@ -155,6 +159,7 @@ bool Options::save() {
   data["materialBinLoaderEnabled"] = materialBinLoaderEnabled.get();
   data["redirectShaders"] = redirectShaders.get();
   data["forceEnableVibrantVisuals"] = forceEnableVibrantVisuals.get();
+  data["fontSize"] = fontSize.get();
 
   try {
     std::ofstream ofs(optionsFile,
