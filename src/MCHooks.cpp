@@ -30,31 +30,31 @@ typedef bool (*PFN_ResourcePackManager_load)(void *This,
 PFN_ResourcePackManager_load ResourcePackManager_load;
 
 DeclareHook(readFile, std::string*, void *This, void *retstr,
-            Core::PathView *path) {
-  std::string *result = original(This, retstr, path);
-  if (brd::Options::materialBinLoaderEnabled && brd::Options::redirectShaders &&
-      resourcePackManager) {
-    const std::string p = path->getUtf8CString();
-    if (p.find("data/renderer/materials/") != std::string::npos &&
-        strncmp(p.c_str() + p.size() - 13, ".material.bin", 13) == 0) {
+    Core::PathView *path) {
+    std::string *result = original(This, retstr, path);
+    if (brd::Options::materialBinLoaderEnabled && brd::Options::redirectShaders &&
+        resourcePackManager) {
+        const std::string p = path->getUtf8CString();
+        if (p.find("data/renderer/materials/") != std::string::npos &&
+            strncmp(p.c_str() + p.size() - 13, ".material.bin", 13) == 0) {
 
-      std::string binPath =
-          "renderer/materials/" + p.substr(p.find_last_of('/') + 1);
-      ResourceLocation location(binPath);
-      std::string out;
-      // Logger::log("ResourcePackManager::load path=%s", binPath.c_str());
+            std::string binPath =
+                "renderer/materials/" + p.substr(p.find_last_of('/') + 1);
+            ResourceLocation location(binPath);
+            std::string out;
+            // Logger::log("ResourcePackManager::load path=%s", binPath.c_str());
 
-      bool success =
-          ResourcePackManager_load(resourcePackManager, location, out);
+            bool success =
+                ResourcePackManager_load(resourcePackManager, location, out);
 
-      if (success && !out.empty()) {
-        result->assign(out);
-        Logger::log("Loaded %s", binPath.c_str());
-      }
-      // Logger::log("ResourcePackManager::load ret=%d", success);
+            if (success && !out.empty()) {
+                result->assign(out);
+                Logger::log("Loaded %s", binPath.c_str());
+            }
+            // Logger::log("ResourcePackManager::load ret=%d", success);
+        }
     }
-  }
-  return result;
+    return result;
 }
 
 DeclareHook(clientInstance_Update, __int64, void *This,
@@ -73,7 +73,7 @@ DeclareHook(clientInstance_Update, __int64, void *This,
       "? ? ? ?"
       " 48 8B ? 48 83 C4 ? 5B C3 CC CC CC CC CC CC CC 48 83 EC");
 
-  if (adrr && !resourcePackManager) {
+  if (adrr) {
     auto func = reinterpret_cast<func_t>(adrr);
     if (func) {
       resourcePackManager = func(This);
@@ -101,6 +101,12 @@ DeclareHook(mce_framebuilder_BgfxFrameBuilder_endFrame, void, uintptr_t This,
   if (brd::Options::reloadShadersAvailable && brd::Options::reloadShaders) {
     brd::Options::reloadShaders = false;
     reloadMaterial(This);
+  }
+  if (This) {
+      auto unk = *(uintptr_t*)((char*)This + 0x350); //offset at 48 89 88 50 03 00 00 48 8B B0 58 03 00 00
+      if (unk) {
+          gDeferredParams = (dragon::framerenderer::DeferredShadingParameters*)(unk + 0xB0);
+      }
   }
   original(This, frameBuilderContext);
 }
@@ -205,13 +211,8 @@ void initMCHooks() {
              // 1.21.100
              "48 89 5C 24 ? 48 89 6C 24 ? 56 57 41 56 48 83 EC 50 0F 29 74 24 "
              "? 48 8B 05 ? ? ? ? 48 33 C4 48 89 44 24 ? 4D 8B F1");
-  // 1.26.30 at 48 89 DF 4C 89 FE 48 B8 ? ? ? ? ? ? ? ? 49 89 46 ? 48 8D 05 ? ? ? ? 49 89 06 41 0F 11 76 ? 41 C7 46 ? ? ? ? ? 41 C6 46 ? ? 0F 10 05 ? ? ? ? 41 0F 11 46 ? 41 0F 11 46 ? 
-  // inlined
-  // will use alternative
-  TrySigHook(RayTracingResourcesConstrucstor, 
-             // 1.26.20
-             // TODO
-             // 1.21.100
-             "48 89 5C 24 ? 48 89 74 24 ? 48 89 4C 24 ? 57 48 83 EC 20 48 8B "
-             "F9 33 F6 48 89 31 48 89 71 ? C7 41");
+  TrySigHook(RayTracingResourcesConstrucstor,
+      // 1.21.100
+      "48 89 5C 24 ? 48 89 74 24 ? 48 89 4C 24 ? 57 48 83 EC 20 48 8B "
+      "F9 33 F6 48 89 31 48 89 71 ? C7 41");
 }
